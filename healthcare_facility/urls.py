@@ -5,7 +5,9 @@ from django.urls.conf import re_path
 from .views import *
 
 urlpatterns = [
-    re_path(r'^facility/(?P<pk>[0-9]+)$', FacilityDetailViewById.as_view(),name="facility-detail-id"),
-    re_path(r'^facility/(?P<state>[a-zA-Z_]+)/(?P<city>[a-zA-Z_]+)$', FacilityDetailViewByCity.as_view(),name="facility-list-by-city"),
+    path('facility/<int:id>', FacilityDetailViewById.as_view(),name="facility-detail-id"),
+    path('facility/<str:state>/<str:city>', FacilityDetailViewByCity.as_view(),name="facility-list-by-city"),
+    path('facility/<str:state>', FacilityDetailViewByState.as_view(),name="facility-list-by-state"),
     path('facility', FacilityListView.as_view(),name="facility-list"),
+    path('facility-create', FacilityCreateView.as_view(),name="facility-create"),
 ]

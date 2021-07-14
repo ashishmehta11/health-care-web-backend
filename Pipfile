@@ -13,6 +13,7 @@ Django = "==2.2"
 PyJWT = "==1.7.1"
 
 [dev-packages]
+autopep8 = "*"
 
 [requires]
 python_version = "3.9"
