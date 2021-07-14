@@ -25,7 +25,7 @@ SECRET_KEY = '6kpx6zu!4bk)*r-*m8o(kn)2$f3@=w+iqfk^huy#5#skr@&su-'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['locahhost','127.0.0.1','192.168.0.101']
 
 
 # Application definition

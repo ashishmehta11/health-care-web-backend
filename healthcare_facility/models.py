@@ -6,9 +6,12 @@ from django.conf import UserSettingsHolder, settings
 # Create your models here.
 class Facility(models.Model):
 
-    user = models.ForeignKey( settings.AUTH_USER_MODEL,on_delete=CASCADE)
+    user= models.ForeignKey( settings.AUTH_USER_MODEL,on_delete=CASCADE)
     name = models.TextField(null=True,blank=True)
     address = models.TextField(null=False,blank=False)
+    city = models.TextField(null=True,blank=True)
+    state = models.TextField(null=True,blank=True)
+    pin_code=models.IntegerField(null=True,blank=True)
     about = models.TextField(null=False,blank=False)
     established_date = models.DateTimeField(null=False,blank=False)
     contact_numbers = models.TextField(null=False,blank=False)
