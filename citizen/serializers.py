@@ -1,13 +1,10 @@
+from   .models import Citizen
 from rest_framework import serializers
-from .models import Facility
-
-class FacilitySerializer(serializers.ModelSerializer):
+class CitizenSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
 
     def get_user(self,object):
         return object.user.email
     class Meta:
-        model = Facility
+        model = Citizen
         fields = '__all__'
-
-

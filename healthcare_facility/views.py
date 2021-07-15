@@ -1,15 +1,15 @@
-from json.encoder import JSONEncoder
-from django.http.response import JsonResponse
-from rest_framework import generics, mixins, status
-from rest_framework.renderers import JSONRenderer
-from rest_framework.parsers import JSONParser
+from rest_framework import generics, mixins
 from django.conf import settings
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 from healthcare_facility.models import Affiliation, Facility, FacilityAffiliation, FacilityOwnership, FacilitySpeciality, Ownership, Speciality
-from django.contrib.auth.models import Group, User     
 from django.shortcuts import render
-from django.http import HttpResponse
 from .serializers import FacilitySerializer
-
+from dateutil.parser import parse
+from django.contrib.auth.models import Group, User     
+from rest_framework.parsers import JSONParser
+from django.http.response import JsonResponse
 
 def get_dict(facility):
     facility_affiliations = FacilityAffiliation.objects.filter(facility=facility)
@@ -51,6 +51,82 @@ def get_dict(facility):
         
 
 
+class FacilityUpdateView(generics.GenericAPIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+
+    def post(self, request):
+        tk = str(request.headers['Authorization']).split(' ')[1]
+        data = JSONParser().parse(request)
+        try:
+            token = Token.objects.get(key=tk)
+            print('token belongs to ',token.user.username)
+            user = User.objects.get(username=token.user.username)
+            facility = Facility.objects.get(user=user)        
+            user.set_password(data['password']) 
+            print('facility belongs to ',facility.user.username)
+            print('facility id ',facility.id)
+            print('user belongs to ',user.username)
+            facility.emails = data['emails']
+            facility.name = data['name']
+            facility.address= data['address']
+            facility.city = data['city']
+            facility.state = data['state']
+            facility.pin_code = data['pin_code']
+            facility.contact_numbers = data['contact_numbers']
+            facility.about=data['about']
+            facility.established_date=parse(data['established_date'])
+
+            
+            for f_a in FacilityAffiliation.objects.filter(facility=facility):
+                f_a.delete()
+
+            for f_s in FacilitySpeciality.objects.filter(facility=facility):
+                f_s.delete()
+            
+            for f_w in FacilityOwnership.objects.filter(facility=facility):
+                f_w.delete()
+            
+            l = data['affiliations']
+
+            for i in l:
+                affiliations = Affiliation.objects.get(name=i)
+                facility_affiliations = FacilityAffiliation(facility=facility,affiliations=affiliations)
+                facility_affiliations.save()    
+
+            l = data['speciality']
+
+            for i in l:
+                speciality = Speciality.objects.get(name=i)
+                facility_speciality = FacilitySpeciality(facility=facility,speciality=speciality)
+                facility_speciality.save()
+
+            l = data['ownership']
+            own = Ownership.objects.get(name=l['id'])
+            facility_ownership = FacilityOwnership(facility=facility,ownership=own,name=l['name'])
+            facility_ownership.save()
+
+            user.save()
+            facility.save()
+            res = {
+                "success": "Account Updated Successfully"
+            }
+
+            return JsonResponse(res, safe=False, status=201)
+
+        except Facility.DoesNotExist:
+            d = {
+                "error": "User does not already exists"
+            }
+            return JsonResponse(d, safe=False, status=404)
+        except User.DoesNotExist:
+            d = {
+                "error": "User does not already exists"
+            }
+            return JsonResponse(d, safe=False, status=404)
+
+
 class FacilityListView(generics.GenericAPIView,mixins.ListModelMixin):
     serializer_class = FacilitySerializer
 
@@ -71,8 +147,7 @@ class FacilityDetailViewById(generics.RetrieveAPIView):
             facility = Facility.objects.get(id=id)
             return JsonResponse(get_dict(facility),safe=False,status=200)
         except Facility.DoesNotExist:
-            return JsonResponse({'error':'does not exists'},safe=False,status=404)
-
+            return JsonResponse({'error':'not found'},safe=False,status=404)
 
     
 
@@ -81,10 +156,16 @@ class FacilityDetailViewByCity(generics.ListAPIView):
 
     def get(self,request,state,city):
         try:
-            facility = Facility.objects.get(state=state,city=city)
-            return JsonResponse(get_dict(facility),safe=False,status=200)
+            l =[]
+            state = str(state).replace('_',' ')
+            city = str(city).replace('_',' ')
+            for facility in Facility.objects.filter(state=state,city=city):
+                l.append(get_dict(facility))
+            
+            d = {'facilities' : l}
+            return JsonResponse(d,safe=False,status=200)
         except Facility.DoesNotExist:
-            return JsonResponse({'error':'does not exists'},safe=False,status=404)
+            return JsonResponse({'error':'not found'},safe=False,status=404)
         
 
 class FacilityDetailViewByState(generics.ListAPIView):
@@ -92,10 +173,15 @@ class FacilityDetailViewByState(generics.ListAPIView):
 
     def get(self,request,state):
         try:
-            facility = Facility.objects.get(state=state)
-            return JsonResponse(get_dict(facility),safe=False,status=200)
+            l =[]
+            state = str(state).replace('_',' ')
+            for facility in Facility.objects.filter(state=state):
+                l.append(get_dict(facility))
+            
+            d = {'facilities' : l}
+            return JsonResponse(d,safe=False,status=200)
         except Facility.DoesNotExist:
-            return JsonResponse({'error':'does not exists'},safe=False,status=404)
+            return JsonResponse({'error':'not found'},safe=False,status=404)
 
 class FacilityCreateView(generics.GenericAPIView,mixins.CreateModelMixin):
     serializer_class = FacilitySerializer
@@ -106,12 +192,12 @@ class FacilityCreateView(generics.GenericAPIView,mixins.CreateModelMixin):
             d = {
                 "error":"User already exists"
             }
-            return JsonResponse(d,safe=False,status=400)
+            return JsonResponse(d,safe=False,status=403)
         except User.DoesNotExist:
             user = User.objects.create_user(data['user_name'],data['user_name'],data['password'])
             group = Group.objects.get(name='healthcare facility')
             group.user_set.add(user)
-
+            datetime_obj = parse(data['established_date'])
             facility = Facility(user=user,
             name=data['name'],
             address=data['address'],
@@ -119,7 +205,7 @@ class FacilityCreateView(generics.GenericAPIView,mixins.CreateModelMixin):
             state=data['state'],
             pin_code=data['pin_code'],
             about=data['about'],
-            established_date=data['established_date'],
+            established_date=datetime_obj,
             contact_numbers=data['contact_numbers'],
             emails=data['emails'],
             avg_fees=data['avg_fees'])
@@ -149,5 +235,9 @@ class FacilityCreateView(generics.GenericAPIView,mixins.CreateModelMixin):
             res ={
                 "success":"Facility Created Successfully"
             }
-            return JsonResponse(res,safe=False,status=200)
+            return JsonResponse(res,safe=False,status=201)
+        
+
+
+
         

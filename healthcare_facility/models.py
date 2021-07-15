@@ -1,7 +1,6 @@
 from django.db import models
-from django.db.models import fields, indexes
 from django.db.models.deletion import CASCADE
-from django.conf import UserSettingsHolder, settings
+from django.conf import settings
 
 # Create your models here.
 class Facility(models.Model):
