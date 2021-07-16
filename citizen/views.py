@@ -1,3 +1,4 @@
+from healthcare_facility.models import Facility
 from django.http.response import JsonResponse
 from rest_framework import generics, mixins
 from rest_framework.authtoken.models import Token
@@ -13,7 +14,6 @@ from .serializers import CitizenSerializer
 # Create your views here.
 
 
-
 class CitizenUpdateView(generics.GenericAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -25,18 +25,27 @@ class CitizenUpdateView(generics.GenericAPIView):
         try:
             token = Token.objects.get(key=tk)
             user = User.objects.get(username=token.user.username)
-            citizen = Citizen.objects.get(user=user)            
+            citizen = Citizen.objects.get(user=user)
             user = User.objects.get(username=data['user_name'])
             user.set_password(data['password'])
             if citizen.phone_number != data['phone_number']:
                 try:
-                    Citizen.objects.get(phone_number=data['phone_number'])
-                    res = {
-                        "error": "Phone number already taken"
+                    Facility.objects.get(contact_numbers__contains=str(
+                        data['phone_number']))
+                    d = {
+                        "error": "Primary phone number already taken"
                     }
-                    return JsonResponse(res, safe=False, staus=403)
-                except Citizen.DoesNotExist:
-                    citizen.phone_number = data['phone_number']
+                    return JsonResponse(d, safe=False, status=403)
+                except Facility.DoesNotExist:
+                    try:
+                        Citizen.objects.get(phone_number__contains=str(
+                            data['phone_number']))
+                        d = {
+                            "error": "Primary phone number already taken"
+                        }
+                        return JsonResponse(d, safe=False, status=403)
+                    except Citizen.DoesNotExist:
+                        citizen.phone_number = data['phone_number']
             citizen.name = data['name']
             user.save()
             citizen.save()
@@ -73,7 +82,7 @@ class CitizenDetailView(generics.GenericAPIView):
                 'user_name': citizen.user.username,
                 'name': citizen.name,
                 'phone_number': citizen.phone_number
-            }                    
+            }
             return JsonResponse(res, safe=False, status=200)
         except Citizen.DoesNotExist:
             res = {
@@ -82,7 +91,7 @@ class CitizenDetailView(generics.GenericAPIView):
             return JsonResponse(res, safe=False, status=404)
 
 
-class CitizenCreateView(generics.GenericAPIView, mixins.RetrieveModelMixin):
+class CitizenCreateView(generics.GenericAPIView):
     serializer_class = CitizenSerializer
 
     def post(self, request):
@@ -90,26 +99,37 @@ class CitizenCreateView(generics.GenericAPIView, mixins.RetrieveModelMixin):
         try:
             Citizen.objects.get(phone_number=data['phone_number'])
             d = {
-                    "error": "Phone number already taken"
-                }
-            return JsonResponse(d, safe=False, status=403)
+                "error": "Phone number already taken"
+            }
+            print(d)
+            return JsonResponse(d, safe=True, status=403)
         except Citizen.DoesNotExist:
             try:
-                User.objects.get(username=data['user_name'])
+                Facility.objects.get(contact_numbers__contains=str(
+                data['phone_number']))
                 d = {
-                "error": "User already exists"
-                }
+                        "error": "Primary phone number already taken"
+                    }
                 return JsonResponse(d, safe=False, status=403)
-            except User.DoesNotExist:
-                user = User.objects.create_user(
-                data['user_name'], data['user_name'], data['password'])
-                group = Group.objects.get(name='citizen')
-                group.user_set.add(user)
+            except Facility.DoesNotExist:
+                try:
+                    User.objects.get(username=data['user_name'])
+                    d = {
+                        "error": "Email already exists"
+                    }
+                    print(d)
+                    return JsonResponse(d, safe=False, status=403)
+                except User.DoesNotExist:
+                    user = User.objects.create_user(
+                        data['user_name'], data['user_name'], data['password'])
+                    group = Group.objects.get(name='citizen')
+                    group.user_set.add(user)
 
-                citizen = Citizen(
-                    user=user, name=data["name"], phone_number=data['phone_number'])
-                citizen.save()
-                res = {
-                    "success": "Account Created Successfully"
-                }
-                return JsonResponse(res, safe=False, status=201)
+                    citizen = Citizen(
+                        user=user, name=data["name"], phone_number=data['phone_number'])
+                    citizen.save()
+                    res = {
+                        "success": "Account Created Successfully"
+                    }
+                    print(res)
+                    return JsonResponse(res, safe=False, status=201)
