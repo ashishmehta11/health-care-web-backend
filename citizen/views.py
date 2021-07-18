@@ -26,8 +26,10 @@ class CitizenUpdateView(generics.GenericAPIView):
             token = Token.objects.get(key=tk)
             user = User.objects.get(username=token.user.username)
             citizen = Citizen.objects.get(user=user)
-            user = User.objects.get(username=data['user_name'])
-            user.set_password(data['password'])
+            if data.get('password',None) is not None:
+                user.set_password(data['password'])
+            
+            print(f"Citizen ph no : {citizen.phone_number} \ndata [phno] : {data['phone_number']}")
             if citizen.phone_number != data['phone_number']:
                 try:
                     Facility.objects.get(contact_numbers__contains=str(
@@ -56,12 +58,12 @@ class CitizenUpdateView(generics.GenericAPIView):
 
         except Citizen.DoesNotExist:
             d = {
-                "error": "User does not already exists"
+                "error": "User does not exists"
             }
             return JsonResponse(d, safe=False, status=404)
         except User.DoesNotExist:
             d = {
-                "error": "User does not already exists"
+                "error": "User does not exists"
             }
             return JsonResponse(d, safe=False, status=404)
 

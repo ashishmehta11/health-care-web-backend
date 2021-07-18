@@ -141,80 +141,91 @@ class FacilityUpdateView(generics.GenericAPIView):
         tk = str(request.headers['Authorization']).split(' ')[1]
         data = JSONParser().parse(request)
         try:
-            try:
-                Facility.objects.get(contact_numbers__contains=str(data['contact_numbers']).split(';')[0])
-                d = {
-                    "error": "Primary phone number already taken"
-                }
-                return JsonResponse(d, safe=False, status=403)
-            except Facility.DoesNotExist:
+            token = Token.objects.get(key=tk)
+            print('token belongs to ', token.user.username)
+            user = User.objects.get(username=token.user.username)
+            facility = Facility.objects.get(user=user)
+            if facility.contact_numbers != data['contact_numbers']:
                 try:
-                    Citizen.objects.get(phone_number__contains=str(data['contact_numbers']).split(';')[0])
-                    d = {
-                        "error": "Primary phone number already taken"
-                    }
-                    return JsonResponse(d, safe=False, status=403)
-                except Citizen.DoesNotExist:
-                    token = Token.objects.get(key=tk)
-                    print('token belongs to ', token.user.username)
-                    user = User.objects.get(username=token.user.username)
-                    facility = Facility.objects.get(user=user)
-                    if data.get('password', None) != None:
-                        user.set_password(data['password'])
-                    print('facility belongs to ', facility.user.username)
-                    print('facility id ', facility.id)
-                    print('user belongs to ', user.username)
-                    if data.get('emails') is None or data.get('emails', 'null') == 'null':
-                        facility.emails = None
+
+                    f = Facility.objects.get(contact_numbers__contains=str(
+                        data['contact_numbers']).split(';')[0])
+                
+                    if str(f.contact_numbers).split(';')[0] == str(data['contact_numbers']).split(';')[0] and f.id != facility.id:
+                        d = {
+                            "error": "Primary phone number already taken"
+                        }
+                        return JsonResponse(d, safe=False, status=403)
                     else:
-                        facility.emails = data['emails']
-                    facility.name = data['name']
-                    facility.address = data['address']
-                    facility.city = data['city']
-                    facility.state = data['state']
-                    facility.pin_code = data['pin_code']
-                    facility.contact_numbers = data['contact_numbers']
-                    facility.about = data['about']
-                    facility.established_date = parse(data['established_date'])
+                        raise Facility.DoesNotExist
+                except Facility.DoesNotExist:
+                    try:
+                        Citizen.objects.get(phone_number__contains=str(
+                            data['contact_numbers']).split(';')[0])
+                        d = {
+                            "error": "Primary phone number already taken"
+                        }
+                        return JsonResponse(d, safe=False, status=403)
+                    except Citizen.DoesNotExist:
+                        facility.contact_numbers = data['contact_numbers']
 
-                    for f_a in FacilityAffiliation.objects.filter(facility=facility):
-                        f_a.delete()
+            if data.get('password', None) != None:
+                user.set_password(data['password'])
+            print('facility belongs to ', facility.user.username)
+            print('facility id ', facility.id)
+            print('user belongs to ', user.username)
+            if data.get('emails') is None or data.get('emails', 'null') == 'null':
+                facility.emails = None
+            else:
+                facility.emails = data['emails']
+            facility.name = data['name']
+            facility.address = data['address']
+            facility.city = data['city']
+            facility.state = data['state']
+            facility.avg_fees = data['avg_fees']
+            facility.pin_code = data['pin_code']
+            facility.contact_numbers = data['contact_numbers']
+            facility.about = data['about']
+            facility.established_date = parse(data['established_date'])
 
-                    for f_s in FacilitySpeciality.objects.filter(facility=facility):
-                        f_s.delete()
+            for f_a in FacilityAffiliation.objects.filter(facility=facility):
+                f_a.delete()
 
-                    for f_w in FacilityOwnership.objects.filter(facility=facility):
-                        f_w.delete()
+            for f_s in FacilitySpeciality.objects.filter(facility=facility):
+                f_s.delete()
 
-                    l = data['affiliations']
+            for f_w in FacilityOwnership.objects.filter(facility=facility):
+                f_w.delete()
 
-                    for i in l:
-                        affiliations = Affiliation.objects.get(name=i)
-                        facility_affiliations = FacilityAffiliation(
-                            facility=facility, affiliations=affiliations)
-                        facility_affiliations.save()
+            l = data['affiliations']
 
-                    l = data['speciality']
+            for i in l:
+                affiliations = Affiliation.objects.get(name=i)
+                facility_affiliations = FacilityAffiliation(
+                    facility=facility, affiliations=affiliations)
+                facility_affiliations.save()
 
-                    for i in l:
-                        speciality = Speciality.objects.get(name=i)
-                        facility_speciality = FacilitySpeciality(
-                            facility=facility, speciality=speciality)
-                        facility_speciality.save()
+            l = data['speciality']
 
-                    l = data['ownership']
-                    own = Ownership.objects.get(name=l['id'])
-                    facility_ownership = FacilityOwnership(
-                        facility=facility, ownership=own, name=l['name'])
-                    facility_ownership.save()
+            for i in l:
+                speciality = Speciality.objects.get(name=i)
+                facility_speciality = FacilitySpeciality(
+                    facility=facility, speciality=speciality)
+                facility_speciality.save()
 
-                    user.save()
-                    facility.save()
-                    res = {
-                        "success": "Account Updated Successfully"
-                    }
+            l = data['ownership']
+            own = Ownership.objects.get(name=l['id'])
+            facility_ownership = FacilityOwnership(
+                facility=facility, ownership=own, name=l['name'])
+            facility_ownership.save()
 
-                    return JsonResponse(res, safe=False, status=200)
+            user.save()
+            facility.save()
+            res = {
+                "success": "Account Updated Successfully"
+            }
+
+            return JsonResponse(res, safe=False, status=201)
 
         except Facility.DoesNotExist:
             d = {
@@ -297,14 +308,16 @@ class FacilityCreateView(generics.GenericAPIView, mixins.CreateModelMixin):
             return JsonResponse(d, safe=False, status=403)
         except User.DoesNotExist:
             try:
-                Facility.objects.get(contact_numbers__contains=str(data['contact_numbers']).split(';')[0])
+                Facility.objects.get(contact_numbers__contains=str(
+                    data['contact_numbers']).split(';')[0])
                 d = {
                     "error": "Primary phone number already taken"
                 }
                 return JsonResponse(d, safe=False, status=403)
             except Facility.DoesNotExist:
                 try:
-                    Citizen.objects.get(phone_number__contains=str(data['contact_numbers']).split(';')[0])
+                    Citizen.objects.get(phone_number__contains=str(
+                        data['contact_numbers']).split(';')[0])
                     d = {
                         "error": "Primary phone number already taken"
                     }

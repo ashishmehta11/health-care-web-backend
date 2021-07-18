@@ -105,7 +105,7 @@ class UserDeleteView(generics.GenericAPIView):
             user = User.objects.get(username=token.user.username)
             user.delete()
             res = {
-                "success": "user deleted"
+                "success": "User deleted"
             }
             return JsonResponse(res, safe=False, status=200)
         except User.DoesNotExist:
