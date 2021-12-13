@@ -133,6 +133,8 @@ class FacilitySearch(generics.GenericAPIView):
                 return JsonResponse(res, safe=False, status=404)
 
 
+
+
 class FacilityUpdateView(generics.GenericAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -381,3 +383,21 @@ class FacilityCreateView(generics.GenericAPIView, mixins.CreateModelMixin):
                         "success": "Facility Created Successfully"
                     }
                     return JsonResponse(res, safe=False, status=201)
+
+
+class FacilityByAffiliations(generics.GenericAPIView, mixins.ListModelMixin):
+    serializer_class = FacilitySerializer
+    def get(self,request,affiliations):
+        print(f"hello {affiliations}")
+        try:   
+            affiliation = Affiliation.objects.get(name= affiliations)    
+            try:
+                l = []
+                print(f"{affiliation.name}")
+                for fac_aff in FacilityAffiliation.objects.filter(affiliations = affiliation):
+                    l.append(get_dict(fac_aff.facility))        
+                return JsonResponse({"facilities" : l},safe=False,status = 200)
+            except FacilityAffiliation.DoesNotExist:
+                return JsonResponse({'error' : 'not found'},safe=False,status = 404)
+        except Affiliation.DoesNotExist:
+            return JsonResponse({'error' : 'not found'},safe=False,status = 404)

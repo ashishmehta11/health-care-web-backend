@@ -6,7 +6,7 @@ from django.conf import settings
 
 class Citizen(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=CASCADE)
-    name = models.TextField(null=False,blank=False)
+    name = models.TextField(null=False,blank=False,unique=True)
     phone_number = models.TextField(null=False,blank=False,unique=True)
 
 
